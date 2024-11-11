@@ -165,7 +165,9 @@ public class QuorumPeerMain {
             ServerCnxnFactory secureCnxnFactory = null;
 
             if (config.getClientPortAddress() != null) {
+                //根据配置启动Socket服务（默认NIO 可以配置成Netty）
                 cnxnFactory = ServerCnxnFactory.createFactory();
+                //配置监听端口
                 cnxnFactory.configure(config.getClientPortAddress(), config.getMaxClientCnxns(), config.getClientPortListenBacklog(), false);
             }
 

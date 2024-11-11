@@ -1191,6 +1191,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         if (!getView().containsKey(myid)) {
             throw new RuntimeException("My id " + myid + " not in the peer list");
         }
+        // 加载基础数据
         loadDataBase();
         startServerCnxnFactory();
         try {
@@ -1198,8 +1199,12 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         } catch (AdminServerException e) {
             LOG.warn("Problem starting AdminServer", e);
         }
+        // Leader 选举核心要素初始化
+        // 初始化 Vote
+        // 初始化 Vote 的发送 和 接受 线程
         startLeaderElection();
         startJvmPauseMonitor();
+        // 选举核心流程
         super.start();
     }
 
@@ -1272,6 +1277,11 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     }
     public synchronized void startLeaderElection() {
         try {
+            // 当节点们没有被选举出Leader 时， 都是Looking状态
+            //LOOKING,
+            //FOLLOWING,
+            //LEADING,
+            //OBSERVING
             if (getPeerState() == ServerState.LOOKING) {
                 currentVote = new Vote(myid, getLastLoggedZxid(), getCurrentEpoch());
             }
@@ -1423,10 +1433,12 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                 LOG.warn("Clobbering already-set QuorumCnxManager (restarting leader election?)");
                 oldQcm.halt();
             }
+//            根据配置监听指定端口，以BIO的形式开启Socket来接收选票
             QuorumCnxManager.Listener listener = qcm.listener;
             if (listener != null) {
                 listener.start();
                 FastLeaderElection fle = new FastLeaderElection(this, qcm);
+                //开启接受选票和发送选票的线程
                 fle.start();
                 le = fle;
             } else {

@@ -689,6 +689,7 @@ public class FastLeaderElection implements Election {
      * Send notifications to all peers upon a change in our vote
      */
     private void sendNotifications() {
+        //拿到对应的 VotingMembers
         for (long sid : self.getCurrentAndNextConfigVoters()) {
             QuorumVerifier qv = self.getQuorumVerifier();
             ToSend notmsg = new ToSend(
@@ -941,6 +942,7 @@ public class FastLeaderElection implements Election {
 
             synchronized (this) {
                 logicalclock.incrementAndGet();
+                //初始化选票（getInitId() ->  自己）
                 updateProposal(getInitId(), getInitLastLoggedZxid(), getPeerEpoch());
             }
 
@@ -948,6 +950,7 @@ public class FastLeaderElection implements Election {
                 "New election. My id = {}, proposed zxid=0x{}",
                 self.getMyId(),
                 Long.toHexString(proposedZxid));
+            //将选票发到sendqueue中，并且第一张选票是给自己的 -> getInitId()
             sendNotifications();
 
             SyncedLearnerTracker voteSet = null;
@@ -961,6 +964,7 @@ public class FastLeaderElection implements Election {
                  * Remove next notification from queue, times out after 2 times
                  * the termination time
                  */
+                // 从 recvqueue 中 拿去 msg
                 Notification n = recvqueue.poll(notTimeout, TimeUnit.MILLISECONDS);
 
                 /*
@@ -971,6 +975,8 @@ public class FastLeaderElection implements Election {
                     if (manager.haveDelivered()) {
                         sendNotifications();
                     } else {
+                        //服务一开启启动时会跑这部分
+                        //跟其他节点进行socket连接，用于发送信息
                         manager.connectAll();
                     }
 

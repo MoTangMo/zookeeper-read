@@ -280,6 +280,7 @@ public class DataTree {
         this(new DigestCalculator());
     }
 
+    // 初始化的时候添加默认的节点，/zookeeper 节点
     DataTree(DigestCalculator digestCalculator) {
         this.digestCalculator = digestCalculator;
         nodes = new NodeHashMapImpl(digestCalculator);
@@ -290,6 +291,7 @@ public class DataTree {
 
         // add the proc node and quota node
         root.addChild(procChildZookeeper);
+        //添加 /zookeeper 节点
         nodes.put(procZookeeper, procDataNode);
 
         procDataNode.addChild(quotaChildZookeeper);
