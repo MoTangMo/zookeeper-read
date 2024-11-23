@@ -1628,12 +1628,14 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                     } catch (Exception e) {
                         LOG.warn("Unexpected exception", e);
                     } finally {
+                        //1. 如果与主机断开了连接，Socket会断开，那么会抛出异常来到这个地方处理
                         follower.shutdown();
-                        setFollower(null);
-                        updateServerState();
+                        setFollower(null);//重置Follower
+                        updateServerState();//将状态改为LOOKING ，就又继续回到选举的地方
                     }
                     break;
                 case LEADING:
+                    //当选举结束后，Leader的状态会转为LEADING
                     LOG.info("LEADING");
                     try {
                         setLeader(makeLeader(logFactory));

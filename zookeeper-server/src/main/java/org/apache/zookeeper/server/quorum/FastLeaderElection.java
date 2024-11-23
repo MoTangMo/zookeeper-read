@@ -975,7 +975,7 @@ public class FastLeaderElection implements Election {
                     if (manager.haveDelivered()) {
                         sendNotifications();
                     } else {
-                        //服务一开启启动时会跑这部分
+                        //服务一开启启动时会跑这部分，因为此时消息队列是获取不到消息的
                         //跟其他节点进行socket连接，用于发送信息
                         manager.connectAll();
                     }
@@ -1034,6 +1034,7 @@ public class FastLeaderElection implements Election {
                                     Long.toHexString(logicalclock.get()));
                             break;
                         } else if (totalOrderPredicate(n.leader, n.zxid, n.peerEpoch, proposedLeader, proposedZxid, proposedEpoch)) {
+                            //第一轮选举
                             updateProposal(n.leader, n.zxid, n.peerEpoch);
                             sendNotifications();
                         }
@@ -1046,12 +1047,15 @@ public class FastLeaderElection implements Election {
                             Long.toHexString(n.electionEpoch));
 
                         // don't care about the version if it's in LOOKING state
+                        // 将自己得到的选票放置选票收集集合中，用于后面进行统计
                         recvset.put(n.sid, new Vote(n.leader, n.zxid, n.electionEpoch, n.peerEpoch));
 
                         voteSet = getVoteTracker(recvset, new Vote(proposedLeader, proposedZxid, logicalclock.get(), proposedEpoch));
 
+                        //在这里就进行选票的统计
                         if (voteSet.hasAllQuorums()) {
 
+                            //如果已达半数以上，会再次从recvqueue尝试拉取选票，确保实时性
                             // Verify if there is any change in the proposed leader
                             while ((n = recvqueue.poll(finalizeWait, TimeUnit.MILLISECONDS)) != null) {
                                 if (totalOrderPredicate(n.leader, n.zxid, n.peerEpoch, proposedLeader, proposedZxid, proposedEpoch)) {
@@ -1064,6 +1068,7 @@ public class FastLeaderElection implements Election {
                              * This predicate is true once we don't read any new
                              * relevant message from the reception queue
                              */
+                            //如果拉取不到选票就可以选举出来真正的Leader了
                             if (n == null) {
                                 setPeerState(proposedLeader, voteSet);
                                 Vote endVote = new Vote(proposedLeader, proposedZxid, logicalclock.get(), proposedEpoch);

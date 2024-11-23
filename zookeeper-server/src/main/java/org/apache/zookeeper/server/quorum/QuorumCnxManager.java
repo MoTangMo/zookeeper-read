@@ -549,6 +549,7 @@ public class QuorumCnxManager {
     public void receiveConnection(final Socket sock) {
         DataInputStream din = null;
         try {
+            //通过socket通道获取输入流封装成DataInputStream
             din = new DataInputStream(new BufferedInputStream(sock.getInputStream()));
 
             LOG.debug("Sync handling of connection request received from: {}", sock.getRemoteSocketAddress());
@@ -604,7 +605,10 @@ public class QuorumCnxManager {
                 sid = protocolVersion;
             } else {
                 try {
+                    //解析信息
                     InitialMessage init = InitialMessage.parse(protocolVersion, din);
+                    //获取远端连接的ID值，在Sender源码处得知，节点会将自己的sid封装成msg，然后推到sendqueue中，
+                    // 所以在这里同理可以接收来自其他Client发送过来的msg，所以可以通过这个过来获取对应Client的sid
                     sid = init.sid;
                     if (!init.electionAddr.isEmpty()) {
                         electionAddr = new MultipleAddresses(init.electionAddr,
@@ -650,11 +654,14 @@ public class QuorumCnxManager {
              * Now we start a new connection
              */
             LOG.debug("Create new connection to server: {}", sid);
+            //由于Socket本身就是全双工的，而节点间都对对方发起了Socket连接，所以实际上存在着两条Socket连接
+            //所以关闭连接重连，保持只有一条Socket连接即可
             closeSocket(sock);
 
             if (electionAddr != null) {
                 connectOne(sid, electionAddr);
             } else {
+                //重连
                 connectOne(sid);
             }
 
@@ -663,6 +670,7 @@ public class QuorumCnxManager {
             LOG.warn("We got a connection request from a server with our own ID. "
                      + "This should be either a configuration error, or a bug.");
         } else { // Otherwise start worker threads to receive data.
+            //连接已经准备了，这里可以开始真正的业务逻辑
             SendWorker sw = new SendWorker(sock, sid);
             RecvWorker rw = new RecvWorker(sock, din, sid, sw);
             sw.setRecv(rw);
@@ -672,7 +680,7 @@ public class QuorumCnxManager {
             if (vsw != null) {
                 vsw.finish();
             }
-
+            //这里构建了一个绑定关系，将远端传来的sid和SendWorker绑定
             senderWorkerMap.put(sid, sw);
 
             queueSendMap.putIfAbsent(sid, new CircularBlockingQueue<>(SEND_CAPACITY));
@@ -692,6 +700,7 @@ public class QuorumCnxManager {
          */
         if (this.mySid == sid) {
             b.position(0);
+            //给自己发送票时的处理
             addToRecvQueue(new Message(b.duplicate(), sid));
             /*
              * Otherwise send to the corresponding thread to send.
@@ -700,6 +709,7 @@ public class QuorumCnxManager {
             /*
              * Start a new connection if doesn't have one already.
              */
+            //如果不是发给自己的话，就会尝试从queueSendMap(这里绑定着sid和其相关的消息队列的信息)，如果获取不到就创建一个
             BlockingQueue<ByteBuffer> bq = queueSendMap.computeIfAbsent(sid, serverId -> new CircularBlockingQueue<>(SEND_CAPACITY));
             addToSendQueue(bq, b);
             connectOne(sid);
